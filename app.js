@@ -95,10 +95,21 @@ app.get(`/matches/:matchId/`, async (request, response) => {
 app.get(`/players/:playerId/matches`, async (request, response) => {
   const {playerId} = request.params
   const getAllMatchesQuery = `
-  SELECT * FROM player_match_score NATURAL JOIN match_details
-  WHERE player_id = ${playerId};`
+  SELECT 
+    match_details.match_id AS matchId,
+    match_details.match As match,
+    match_details.year AS year,
+  FROM player_match_score NATURAL JOIN match_details
+  WHERE player_match_score.player_id = ${playerId};`
   const playerMatches = await db.all(getAllMatchesQuery)
-  response.send(playerMatches)
+  const ans = playerMatches => {
+    return {
+      matchId: playerMatches.match_id,
+      match: playerMatches.match,
+      year: playerMatches.year,
+    }
+  }
+  response.send(playerMatches.map(eachMatch => ans(eachMatch)))
 })
 
 //Get the list of players of a specific match API 6
@@ -124,19 +135,13 @@ app.get(`/players/:playerId/playerScores`, async (request, response) => {
     player_details.player_id AS playerId,
     player_details.player_name AS playerName,
     SUM(player_match_score.score) AS totalScore,
-    SUM(fours) AS totalFours,
-    SUM(sixes) AS totalSixes 
+    SUM(player_match_score.fours) AS totalFours,
+    SUM(player_match_score.sixes) AS totalSixes 
   FROM player_details INNER JOIN player_match_score ON
   player_details.player_id = player_match_score.player_id
   WHERE player_details.player_id = ${playerId};`
   const getAllPlayerScoreQueryResponse = await db.get(getAllPlayerScoreQuery)
-  response.send({
-    playerId: playerId,
-    playerName: playerName,
-    totalScore: getAllPlayerScoreQueryResponse['SUM(score)'],
-    totalFours: getAllPlayerScoreQueryResponse['SUM(fours)'],
-    totalScore: getAllPlayerScoreQueryResponse['SUM(sixes)'],
-  })
+  response.send(getAllPlayerScoreQueryResponse)
 })
 
 module.exports = app
